@@ -6,6 +6,7 @@ const { attachCookiesToResponse, createTokenUser } = require('../utils');
 const crypto = require('crypto');
 const sendVerificationEmail = require('../utils/sendVerificationEmail');
 const sendResetPasswordEmail = require('../utils/sendResetPasswordEmail');
+const createHash = require('../utils/createHash');
 
 // 1)
 const register = async (req, res) => {
@@ -157,24 +158,25 @@ const forgotPassword = async (req, res) => {
   }
 
   const user = await User.findOne({ email });
+
   if (user) {
-    const passwordToken = crypto.randomBytes(70).toString('hex');
+    passwordToken = crypto.randomBytes(70).toString('hex');
+    const origin = 'http://localhost:3000';
+    // Send email
+    await sendResetPasswordEmail({
+      name: user.name,
+      email: user.email,
+      verificationToken: passwordToken,
+      origin,
+    });
+
+    const oneMinute = 1000 * 60;
+    const passwordTokenExpirationDate = new Date(Date.now() + oneMinute);
+
+    user.passwordToken = createHash(passwordToken);
+    user.passwordTokenExpirationDate = passwordTokenExpirationDate;
+    await user.save();
   }
-  const origin = 'http://localhost:3000';
-  // Send email
-  await sendResetPasswordEmail({
-    name: user.name,
-    email: user.email,
-    verificationToken: passwordToken,
-    origin,
-  });
-
-  const oneMinute = 1000 * 60;
-  const passwordTokenExpirationDate = new Date(Date.now() + oneMinute);
-
-  user.passwordToken = passwordToken;
-  user.passwordTokenExpirationDate = passwordTokenExpirationDate;
-  await user.save();
 
   res
     .status(StatusCodes.OK)
@@ -183,6 +185,27 @@ const forgotPassword = async (req, res) => {
 
 // 6)
 const resetPassword = async (req, res) => {
+  const { token, email, password } = req.body;
+
+  if (!email || !token || !password) {
+    throw new CustomError.BadRequestError('Please provide all values!');
+  }
+
+  const user = await User.findOne({ email });
+
+  if (user) {
+    const currentDate = new Date();
+
+    if (
+      user.passwordToken === createHash(token) &&
+      user.passwordTokenExpirationDate > currentDate
+    ) {
+      user.password = password;
+      user.passwordToken = null;
+      user.passwordTokenExpirationDate = null;
+      await user.save();
+    }
+  }
   res.send('reset password');
 };
 
