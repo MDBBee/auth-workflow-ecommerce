@@ -127,9 +127,10 @@ const login = async (req, res) => {
   await Token.create(userToken);
   attachCookiesToResponse({ res, user: tokenUserPayloadObject, refreshToken });
 
-  res.status(StatusCodes.OK).json({ user: tokenUser });
+  res.status(StatusCodes.OK).json({ user: tokenUserPayloadObject });
 };
 
+// 4)
 const logout = async (req, res) => {
   await Token.findOneAndDelete({ user: req.user.userId });
 
@@ -146,9 +147,39 @@ const logout = async (req, res) => {
   res.status(StatusCodes.OK).json({ msg: 'user logged out!' });
 };
 
+// 5)
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new CustomError.BadRequestError('Please provide a valid email');
+  }
+
+  const user = crypto.randomBytes(70).toString('hex');
+  // Send email
+
+  const oneMinute = 1000 * 60;
+  const passwordTokenExpirationDate = new Date(Date.now() + oneMinute);
+
+  user.passwordToken = passwordToken;
+  user.passwordTokenExpirationDate = passwordTokenExpirationDate;
+  await user.save();
+
+  res
+    .status(StatusCodes.OK)
+    .json({ msg: 'Please check your email for password reset link' });
+};
+
+// 6)
+const resetPassword = async (req, res) => {
+  res.send('reset password');
+};
+
 module.exports = {
   register,
   login,
   logout,
   verifyEmail,
+  forgotPassword,
+  resetPassword,
 };
