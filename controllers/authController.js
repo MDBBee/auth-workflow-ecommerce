@@ -3,6 +3,8 @@ const { StatusCodes } = require('http-status-codes');
 const CustomError = require('../errors');
 const { attachCookiesToResponse, createTokenUser } = require('../utils');
 const crypto = require('crypto');
+const sendVerificationEmail = require('../utils/sendVerificationEmail');
+
 // 1)
 const register = async (req, res) => {
   const { email, name, password } = req.body;
@@ -20,11 +22,13 @@ const register = async (req, res) => {
 
   const user = await User.create({
     name,
-    email,
+    email: email.toLowerCase(),
     password,
     role,
     verificationToken,
   });
+
+  await sendEmail();
 
   res.status(StatusCodes.CREATED).json({
     msg: 'Success, please verify your reg by checking your email..',
@@ -35,7 +39,7 @@ const register = async (req, res) => {
 // 2)
 const verifyEmail = async (req, res) => {
   const { verificationToken, email } = req.body;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: email.toLowerCase() });
 
   if (!user) throw new CustomError.UnauthenticatedError('Verification failed');
   if (user.verificationToken !== verificationToken)
@@ -57,7 +61,7 @@ const login = async (req, res) => {
   if (!email || !password) {
     throw new CustomError.BadRequestError('Please provide email and password');
   }
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: email.toLowerCase() });
 
   if (!user) {
     throw new CustomError.UnauthenticatedError('Invalid Credentials');
@@ -79,6 +83,7 @@ const login = async (req, res) => {
 
   res.status(StatusCodes.OK).json({ user: tokenUser });
 };
+
 const logout = async (req, res) => {
   res.cookie('token', 'logout', {
     httpOnly: true,
