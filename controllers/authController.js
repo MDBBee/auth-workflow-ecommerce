@@ -5,6 +5,7 @@ const CustomError = require('../errors');
 const { attachCookiesToResponse, createTokenUser } = require('../utils');
 const crypto = require('crypto');
 const sendVerificationEmail = require('../utils/sendVerificationEmail');
+const sendResetPasswordEmail = require('../utils/sendResetPasswordEmail');
 
 // 1)
 const register = async (req, res) => {
@@ -155,8 +156,18 @@ const forgotPassword = async (req, res) => {
     throw new CustomError.BadRequestError('Please provide a valid email');
   }
 
-  const user = crypto.randomBytes(70).toString('hex');
+  const user = await User.findOne({ email });
+  if (user) {
+    const passwordToken = crypto.randomBytes(70).toString('hex');
+  }
+  const origin = 'http://localhost:3000';
   // Send email
+  await sendResetPasswordEmail({
+    name: user.name,
+    email: user.email,
+    verificationToken: passwordToken,
+    origin,
+  });
 
   const oneMinute = 1000 * 60;
   const passwordTokenExpirationDate = new Date(Date.now() + oneMinute);
